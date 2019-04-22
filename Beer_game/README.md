@@ -1,4 +1,4 @@
-## Kuhn Poker
+## Beer Game
 
 
 - beer game （[啤酒游戏](https://wenku.baidu.com/view/d160acc79ec3d5bbfd0a7463.html)）是 一个模拟供应链的简易游戏。
