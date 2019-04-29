@@ -32,3 +32,9 @@
 ## References
 
 - [1] [A Deep Q-Network for the Beer Game: Reinforcement Learning for Inventory Optimization](https://arxiv.org/pdf/1708.05924.pdf)
+
+- [2] pesudocode from [1]
+
+![pic_0](./Beer_game/pic/br_0.png)
+
+![pic_0](./Beer_game/pic/br_pseudocode.png)

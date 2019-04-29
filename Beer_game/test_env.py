@@ -4,10 +4,36 @@ import time
 import tqdm
 def demand():
     while True:
-        yield np.random.uniform(10)
+        yield np.random.randint(10)
 demand_gen = demand()
 
-env = BeerGameEnv(demand_gen, lag=5)
+env = BeerGameEnv(demand_gen, lag=2)
+api = env.start_play()
+next(api)
+env.on_order
+env.on_order
+env.trans[-env.lag]
+env.lag
+env.arr_order
+env.arr_order
+api.send(0)
+env.trans
+env.cost
+env.week
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 state = env.reset()
 
 action = np.array([0,0,0,0])
