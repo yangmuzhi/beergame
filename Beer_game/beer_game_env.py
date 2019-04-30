@@ -20,7 +20,7 @@ class BeerGameEnv:
     def __init__(self, demand, lag=1):
         self.demand_gen = demand
         self.trans_lag = lag
-        self.feature_num = 5
+        self.feature_num = 4
         self.end_week = None
         self.lag = lag
 
@@ -47,37 +47,19 @@ class BeerGameEnv:
             d = True
         return d
 
-    # def _deal_after_each_week(self):
-    #     """已废弃   每周结算, 返回 state，r, d   """
-    #     self.cost_his.append(self.cost.copy())
-    #     for i in range(4):
-    #         self.state[i].pop(-1)
-    #     new_state = []
-    #     for _ in range(4):
-    #         new_state.append(np.zeros(self.feature_num))
-    #     for i in range(4):
-    #         new_state[i][0] = self.stock[i]
-    #         # new_state[i][1] = self.back_order[i]
-    #         new_state[i][2] = self.trans[0][i]
-    #         new_state[i][3] = self.on_order[i]
-    #     for i in range(4):
-    #         self.state[i].append(new_state[i])
-    #
-    #     return self.state, self.cost, self.done
-
     def _return_state_for_every_agent(self, agent_idx):
         """返回state t+1时刻"""
+
         self.state[agent_idx][-1][0] = self.stock[agent_idx]
         self.state[agent_idx][-1][1] = self.on_order[-1][agent_idx]
         self.state[agent_idx][-1][2] = self.arr_order[-1][agent_idx]
-        self.state[agent_idx][-1][0] = self.trans[-self.trans_lag][agent_idx]
+        self.state[agent_idx][-1][3] = self.trans[-self.trans_lag][agent_idx]
 
-        return self.state[agent_idx],self.cost[agent_idx],self.done
+        return self.state[agent_idx][-(self.lag):], self.cost[agent_idx], self.done
 
     def _init_state(self, m=1):
         """初始化 state """
         self.state = []
-        demand = next(self.demand_gen)
         for i in range(4):
             state = []
             for j in range(m):
@@ -116,6 +98,8 @@ class BeerGameEnv:
         self.week += 1
         self.arr_order.append(np.zeros(4))
         self.on_order.append(np.zeros(4))
+        for i in range(4):
+            self.state[i].append(np.zeros(4))
 
     def reset(self):
         """reset game"""

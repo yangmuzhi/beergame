@@ -16,7 +16,7 @@
 
 ## todo
 
-- [ ] 弄清楚beergame的原理
+- [x] 弄清楚beergame的原理
 
 - [ ] 弄清楚state的定义
 

@@ -9,28 +9,14 @@ demand_gen = demand()
 
 env = BeerGameEnv(demand_gen, lag=2)
 api = env.start_play()
+
 next(api)
 env.on_order
-env.on_order
-env.trans[-env.lag]
-env.lag
-env.arr_order
-env.arr_order
-api.send(0)
-env.trans
+a = np.random.randint(10)
+api.send(a)
+
 env.cost
 env.week
-
-
-
-
-
-
-
-
-
-
-
 
 
 

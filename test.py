@@ -14,8 +14,6 @@ demand_gen = demand()
 
 env = BeerGameEnv(demand_gen, lag=1)
 
-state = env.reset()
-
 agents = []
 shape = np.array(state[0]).shape
 for i in range(4):
