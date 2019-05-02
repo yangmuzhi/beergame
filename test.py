@@ -4,6 +4,7 @@ from utils.net import simple_net
 import numpy as np
 
 
+
 eps = 10
 batch_size = 32
 
@@ -12,29 +13,32 @@ def demand():
         yield np.random.uniform(10)
 demand_gen = demand()
 
-env = BeerGameEnv(demand_gen, lag=1)
+env = BeerGameEnv(demand_gen, lag=5)
 
+api = env.start_play()
 agents = []
-shape = np.array(state[0]).shape
+
+state, r, d = next(api)
+
+shape = np.array(state).flatten().shape
+
+
 for i in range(4):
-    agents.append(DQN(state_shape=(4,), n_action=10, net=simple_net))
+    agents.append(DQN(state_shape=shape, n_action=10, net=simple_net))
 
 
-for ep in range(eps):
-    state = env.reset()
 
-    d = False
-    while not d:
-        a = []
-        for i in range(4):
-            a.append(agents[i].agent.e_greedy_action(np.squeeze(np.array(state[i])).reshape(4,)))
-        state, cost, d = env.step(a)
-        
-        
-        
+from Beer_game.utils import chain_wrapper
+
+bg = chain_wrapper(agents, env)
+bg.play(episode=100)
+
+
+
+
+while not d:
     
-
-
-
-
+    for i in range(4):
+        a = agents[i].agent.e_greedy_action(state=np.array(state).flatten()[np.newaxis,:])
+        state,r,d = api.send(a)
 

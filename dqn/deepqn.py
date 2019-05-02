@@ -19,7 +19,8 @@ class DQN:
         self.cum_r = []
         self.model_path = model_path
 
-    def train_agent(self):
+    def train_agent(self, batch_size=32):
+        self.batch_size = batch_size
         state, reward, done, action, next_state = self.sampling_pool.get_sample(self.batch_size)
         q_target = self.agent.q_target(next_state)
         q = self.agent.q_eval(state)
