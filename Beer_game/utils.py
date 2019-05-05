@@ -11,12 +11,14 @@ class chain_wrapper:
         self.env = env
         self.agents = agents
         self.agents_num = len(self.agents)
+        self.week_his = []
 
     def play(self, episode, train_freq=10):
         """要注意的是，agent_i 做完决策之后，并不能立刻获得下一个s,r,d.
             需要等到本周完成且agent_{i-1}完成才行 这个需要思考思考"""
         tqdm_e = tqdm(range(episode))
         for epi in tqdm_e:
+            cum_r = np.zeros(4)
             api = self.env.start_play()
             state, _, _ = next(api)
             d = False
@@ -27,12 +29,18 @@ class chain_wrapper:
                     state_ = np.array(state).flatten()[np.newaxis,:]
                     a = self.agents[i].agent.e_greedy_action(state=state_)
                     next_state,r,d = api.send(a)
-                    obs[i].append([state_, r, d, a, next_state])
+                    cum_r[i] += r
+                    next_state_ = np.array(next_state).flatten()[np.newaxis,:]
+                    obs[i].append([state_, r, d, a, next_state_])
                 for i in range(4):
                     self.obs = obs
-                    self.agents[i].sampling_pool.add_to_buffer(obs[i])
+                    self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
+            for i in range(4):
+                self.agents[i].cum_r.append(cum_r[i])
+            self.week_his.append(self.env.week)
 
             # train
             if epi % train_freq == 0:
                 for i in range(4):
                     self.agents[i].train_agent()
+

@@ -21,11 +21,11 @@ class Sampling_Pool:
         # ob : state, reward, done, action, next_state
         self.size = self.get_size()
         if self.size >= self.mem_size:
-            self.buffer["state"].pop(-1)
-            self.buffer["reward"].pop(-1)
-            self.buffer["done"].pop(-1)
-            self.buffer["action"].pop(-1)
-            self.buffer["next_state"].pop(-1)
+            self.buffer["state"].pop(0)
+            self.buffer["reward"].pop(0)
+            self.buffer["done"].pop(0)
+            self.buffer["action"].pop(0)
+            self.buffer["next_state"].pop(0)
         else:
             self.buffer["state"].append(ob[0])
             self.buffer["reward"].append(ob[1])
@@ -49,7 +49,7 @@ class Sampling_Pool:
         done = np.array([self.buffer["done"][i] for i in idx ])
         action = np.array([self.buffer["action"][i] for i in idx ])
         next_state = np.array([self.buffer["next_state"][i] for i in idx ])
-        return state, reward, done, action, next_state
+        return np.squeeze(state), np.squeeze(reward), np.squeeze(done), np.squeeze(action), np.squeeze(next_state)
 
     def get_size(self):
         return len(self.buffer["state"])

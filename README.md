@@ -18,9 +18,9 @@
 
 - [x] 弄清楚beergame的原理
 
-- [ ] 弄清楚state的定义
+- [x] 弄清楚state的定义
 
-- [ ] dqn bug修改
+- [x] dqn bug修改
 
 - [ ] 四人游戏需要封装env和agents成一个play的类.
 

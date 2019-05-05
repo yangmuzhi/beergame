@@ -22,23 +22,26 @@ state, r, d = next(api)
 
 shape = np.array(state).flatten().shape
 
-
 for i in range(4):
     agents.append(DQN(state_shape=shape, n_action=10, net=simple_net))
-
-
 
 from Beer_game.utils import chain_wrapper
 
 bg = chain_wrapper(agents, env)
-bg.play(episode=100)
+
+
+import matplotlib.pyplot as plt
+
+
+bg.play(episode=1000)
+
+length = len(bg.agents[0].cum_r)
+sum_r = np.array(bg.agents[0].cum_r) + np.array(bg.agents[1].cum_r)+np.array(bg.agents[2].cum_r) + np.array(bg.agents[3].cum_r)
+plt.plot(range(length), sum_r / np.array(bg.week_his))
 
 
 
 
-while not d:
-    
-    for i in range(4):
-        a = agents[i].agent.e_greedy_action(state=np.array(state).flatten()[np.newaxis,:])
-        state,r,d = api.send(a)
+
+
 
