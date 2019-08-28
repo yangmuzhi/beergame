@@ -22,7 +22,7 @@
 
 - [x] dqn bug修改
 
-- [ ] 四人游戏需要封装env和agents成一个play的类.
+- [x] 四人游戏需要封装env和agents成一个play的类.
 
 ## Q&A
 
