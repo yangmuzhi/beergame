@@ -1,9 +1,11 @@
 """
 封装一下 env 和 agents
 """
+
 from tqdm import tqdm
 import numpy as np
 from sklearn.linear_model import LinearRegression
+from keras.models import load_model
 
 class Agent:
 
@@ -74,7 +76,7 @@ class Agent:
 
 class chain_wrapper:
 
-    def __init__(self, agents, env):
+    def __init__(self, agents=[None], env=None):
         self.env = env
         self.agents = agents
         self.agents_num = len(self.agents)
@@ -100,6 +102,7 @@ class chain_wrapper:
                     cum_r[i] += r
             for i in range(4):
                 self.agents[i].cum_r.append(cum_r[i])
+            # print("cum_r  : {}".format(cum_r))
             self.week_his.append(self.env.week)
 
     def play(self, episode, train_freq=10):
@@ -107,8 +110,6 @@ class chain_wrapper:
             需要等到本周完成且agent_{i-1}完成才行 这个需要思考思考"""
         tqdm_e = tqdm(range(episode))
         for epi in tqdm_e:
-            # for i in range(4):
-            #     self.agents[i]._init_agent()
             cum_r = np.zeros(4)
             api = self.env.start_play()
             state, _, _ = next(api)
@@ -136,10 +137,10 @@ class chain_wrapper:
                     self.agents[i].train_agent()
 
     def play_mixed(self, episode, train_freq=10):
-        """agent0 dqn; agent 1,2,3 rule-based policy"""
+        """agent0 ar1; agent2 dqn; agent 1,3 rule-based policy"""
         tqdm_e = tqdm(range(episode))
         for epi in tqdm_e:
-            for i in range(1,4):
+            for i in [0,1,3]:
                 self.agents[i]._init_agent()
             cum_r = np.zeros(4)
             api = self.env.start_play()
@@ -148,7 +149,11 @@ class chain_wrapper:
             while not d:
                 obs = [[], [], [], []]
                 # ob : state, reward, done, action, next_state
-                for i in range(1):
+                for i in [0, 1]:
+                    a = self.agents[i].get_action(self.env)
+                    next_state,r,d = api.send(a)
+                    cum_r[i] += r
+                for i in [2]:
                     state_ = np.array(state).flatten()[np.newaxis,:]
                     a = self.agents[i].agent.e_greedy_action(state=state_)
                     next_state,r,d = api.send(a)
@@ -157,7 +162,7 @@ class chain_wrapper:
                     obs[i].append([state_, r, d, a, next_state_])
                     self.obs = obs
                     self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
-                for i in range(1,4):
+                for i in [3]:
                     a = self.agents[i].get_action(self.env)
                     next_state,r,d = api.send(a)
                     cum_r[i] += r
@@ -168,5 +173,72 @@ class chain_wrapper:
 
             # train
             if epi % train_freq == 0:
-                for i in range(1):
+                for i in [2]:
                     self.agents[i].train_agent()
+
+    def play_4_step(self, path, episode):
+        """
+        加载训练好的模型
+        """
+        # load model
+        dqn_agent = load_model(path)
+        self.agents_list = 0
+
+        tqdm_e = tqdm(range(episode))
+        for epi in tqdm_e:
+            week = 0
+            for i in range(4):
+                self.agents_list[0][i]._init_agent()
+                self.agents_list[1][i]._init_agent()
+            for i in [0,1,3]:
+                self.agents_list[2][i]._init_agent()
+            cum_r = np.zeros(4)
+            api = self.env.start_play()
+            state, _, _ = next(api)
+            d = False
+            while not d:
+                # 1 step
+                if week < 25:
+                    for i in range(4):
+                        a = self.agents_list[0][i].get_action(self.env)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+                # 2 step
+                elif week < 50:
+                    for i in range(4):
+                        a = self.agents_list[1][i].get_action(self.env)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+                elif week < 75:
+                    obs = [[], [], [], []]
+                    # ob : state, reward, done, action, next_state
+                    for i in [0, 1]:
+                        a = self.agents_list[i].get_action(self.env)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+                    for i in [2]:
+                        state_ = np.array(state).flatten()[np.newaxis,:]
+                        a = self.agents_list[i].agent.e_greedy_action(state=state_)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+                    for i in [3]:
+                        a = self.agents_list[i].get_action(self.env)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+                else:
+                    obs = [[], [], [], []]
+                    # ob : state, reward, done, action, next_state
+                    for i in range(4):
+                        state_ = np.array(state).flatten()[np.newaxis,:]
+                        a = self.agents_list[i].agent.e_greedy_action(state=state_)
+                        next_state,r,d = api.send(a)
+                        cum_r[i] += r
+
+                    for i in range(4):
+                        self.obs = obs
+                        self.agents_list[i].sampling_pool.add_to_buffer(obs[i][0])
+
+                for i in range(4):
+                    for j in range(4):
+                        self.agents_list[j][i].cum_r.append(cum_r[i])
+                self.week_his.append(self.env.week)

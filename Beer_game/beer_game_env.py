@@ -78,7 +78,6 @@ class BeerGameEnv:
         self.agent_action_last = self._agent_action_last[agent_idx]
         self.next_demand = self._next_demand[agent_idx]
 
-
         return self.state[agent_idx][-(self.lag):], self.cost[agent_idx], self.done
 
     def _init_state(self, m=1):
@@ -161,7 +160,7 @@ class BeerGameEnv:
             self.arr_order[-1][3] += a
 
             # F
-            a = yield self._return_state_for_every_agent(1)
+            a = yield self._return_state_for_every_agent(3)
             self.on_order[-1][3] += self.on_order[-2][3] + a
 
             self._check_stock_and_trans(a)
