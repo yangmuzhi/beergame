@@ -22,7 +22,7 @@ agents_exp4 = []
 for i in range(4):
     agents_exp4.append(DQN(state_shape=(8,), n_action=25, net=simple_net, model_path='models/dqn4'))
 bg_exp4 = chain_wrapper(agents_exp4, env_exp4)
-bg_exp4.play(episode=1)
+bg_exp4.play(episode=1000000)
 
 
 plt.plot(np.array(bg_exp4.agents[0].cum_r) + np.array(bg_exp4.agents[1].cum_r)
