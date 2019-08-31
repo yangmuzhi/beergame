@@ -7,7 +7,7 @@ player: F:制造商；D：经销商; W：批发商；R：零售商
 player与论文一致：按顺序分别为3，2，1，0
 注意结算的顺序：
 预定订单从0到3开始，有顺序。送货从3到0结算。
-
+\
 可以使用generator的send
 
 demand: 是一个 generator
@@ -19,7 +19,7 @@ class BeerGameEnv:
 
     def __init__(self, demand, lag=2):
         self.demand_gen = demand
-        self.trans_lag = lag
+        self.trans_lag = 2
         self.feature_num = 4
         self.end_week = None
         self.lag = lag
@@ -93,7 +93,7 @@ class BeerGameEnv:
     def _check_stock_and_trans(self, a):
         """货先到，再发货"""
         trans = np.zeros(4)
-        # 计算下个月的到货
+        # 计算下个week的到货
         trans[3] = a
         arr_trans = self.trans[-(self.trans_lag)]
         for i in reversed(range(4)):

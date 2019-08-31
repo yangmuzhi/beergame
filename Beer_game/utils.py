@@ -105,7 +105,7 @@ class chain_wrapper:
             # print("cum_r  : {}".format(cum_r))
             self.week_his.append(self.env.week)
 
-    def play(self, episode, train_freq=10):
+    def play(self, episode, train_freq=10, save_freq=1000):
         """要注意的是，agent_i 做完决策之后，并不能立刻获得下一个s,r,d.
             需要等到本周完成且agent_{i-1}完成才行 这个需要思考思考"""
         tqdm_e = tqdm(range(episode))
@@ -127,15 +127,23 @@ class chain_wrapper:
                 for i in range(4):
                     self.obs = obs
                     self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
+                tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
+                tqdm_e.refresh()
+
             for i in range(4):
                 self.agents[i].cum_r.append(cum_r[i])
             self.week_his.append(self.env.week)
-
             # train
             if epi % train_freq == 0:
                 for i in range(4):
                     self.agents[i].train_agent()
-
+            if epi % save_freq == 0:
+                print("saving models ...")
+                for i in range(4):
+                    self.agents[i].save_model(f"agent_{i}-epis_{epi}.h5")
+        for i in range(4):
+            self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
+            
     def play_mixed(self, episode, train_freq=10):
         """agent0 ar1; agent2 dqn; agent 1,3 rule-based policy"""
         tqdm_e = tqdm(range(episode))
@@ -181,8 +189,23 @@ class chain_wrapper:
         加载训练好的模型
         """
         # load model
-        dqn_agent = load_model(path)
-        self.agents_list = 0
+        self.agents_list = []
+        agents = [Agent(), Agent(), Agent(), Agent()]
+        self.agents_list.append(agents)
+        agents = [Agent(policy='ar'), Agent(), Agent(), Agent()]
+        self.agents_list.append(agents)
+        dqn = load_model(path[0])
+        agents = [Agent(policy='ar'), Agent(), dqn, Agent()]
+        self.agents_list.append(agents)
+        agents = []
+        for i in range(4):
+            dqn = load_model(path[i+1])
+            agents.append(dqn)
+        self.agents_list.append(agents)
+
+        dqn_agent = []
+        for i in range(4):
+            dqn_agent = load_model(path)
 
         tqdm_e = tqdm(range(episode))
         for epi in tqdm_e:

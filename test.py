@@ -12,8 +12,11 @@ def demand():
     while True:
         yield np.random.uniform(10)
 demand_gen = demand()
-
 env = BeerGameEnv(demand_gen, lag=5)
+env.trans_lag
+env.trans[-2]
+env.on_order
+
 
 api = env.start_play()
 agents = []
