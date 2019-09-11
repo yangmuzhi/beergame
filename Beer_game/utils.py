@@ -9,13 +9,17 @@ from keras.models import load_model
 
 class Agent:
 
-    def __init__(self, policy="simple_policy"):
+    def __init__(self, policy="simple_policy", step4=False):
         self.policy = policy
         self.cum_r = []
         self.action_his = []
         self._action_his = []
         self.demand_his = []
         self._demand_his = []
+        if step4:
+            self.exp_weeks = 25
+        else:
+            self.exp_weeks = 60
 
     def _init_agent(self):
         if len(self._demand_his):
@@ -33,7 +37,7 @@ class Agent:
         根据policy来选择action
         """
 
-        if (self.policy == "simple_policy") | (env.week < 60):
+        if (self.policy == "simple_policy") | (env.week < self.exp_weeks):
             action = self.simple_policy(env)
             if self.policy == "ar":
                 self.x.append(env.demand_now)
@@ -76,11 +80,12 @@ class Agent:
 
 class chain_wrapper:
 
-    def __init__(self, agents=[None], env=None):
+    def __init__(self, agents=[None], env=None, agents_list=[]):
         self.env = env
         self.agents = agents
         self.agents_num = len(self.agents)
         self.week_his = []
+        self.agents_list = agents_list
 
     def play_policy(self, episode=100):
         """
@@ -122,8 +127,9 @@ class chain_wrapper:
                     a = self.agents[i].agent.e_greedy_action(state=state_)
                     next_state,r,d = api.send(a)
                     cum_r[i] += r
-                    next_state_ = np.array(next_state).flatten()[np.newaxis,:]
+                    # next_state_ = np.array(next_state).flatten()[np.newaxis,:]
                     obs[i].append([state_, r, d, a, next_state_])
+                    state = next_state
                 for i in range(4):
                     self.obs = obs
                     self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
@@ -143,7 +149,7 @@ class chain_wrapper:
                     self.agents[i].save_model(f"agent_{i}-epis_{epi}.h5")
         for i in range(4):
             self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
-            
+
     def play_mixed(self, episode, train_freq=10):
         """agent0 ar1; agent2 dqn; agent 1,3 rule-based policy"""
         tqdm_e = tqdm(range(episode))
@@ -184,84 +190,168 @@ class chain_wrapper:
                 for i in [2]:
                     self.agents[i].train_agent()
 
-    def play_4_step(self, path, episode):
-        """
-        加载训练好的模型
-        """
-        # load model
-        self.agents_list = []
-        agents = [Agent(), Agent(), Agent(), Agent()]
-        self.agents_list.append(agents)
-        agents = [Agent(policy='ar'), Agent(), Agent(), Agent()]
-        self.agents_list.append(agents)
-        dqn = load_model(path[0])
-        agents = [Agent(policy='ar'), Agent(), dqn, Agent()]
-        self.agents_list.append(agents)
-        agents = []
-        for i in range(4):
-            dqn = load_model(path[i+1])
-            agents.append(dqn)
-        self.agents_list.append(agents)
 
-        dqn_agent = []
-        for i in range(4):
-            dqn_agent = load_model(path)
+    def play_4_policy(self, episode=10):
+        self.cum_r = [[],[],[],[]]
+        self.cum_r_0 = [ [] for i in range(episode)]
+        self.cum_r_1 = [ [] for i in range(episode)]
+        self.cum_r_2 = [ [] for i in range(episode)]
+        self.cum_r_3 = [ [] for i in range(episode)]
+
+        self.r_0 = [ [] for i in range(episode)]
+        self.r_1 = [ [] for i in range(episode)]
+        self.r_2 = [ [] for i in range(episode)]
+        self.r_3 = [ [] for i in range(episode)]
 
         tqdm_e = tqdm(range(episode))
+        for i in range(4):
+            self.agents_list[0][i]._init_agent()
         for epi in tqdm_e:
+            r_4 = np.zeros(4)
             week = 0
-            for i in range(4):
-                self.agents_list[0][i]._init_agent()
-                self.agents_list[1][i]._init_agent()
-            for i in [0,1,3]:
-                self.agents_list[2][i]._init_agent()
             cum_r = np.zeros(4)
             api = self.env.start_play()
             state, _, _ = next(api)
             d = False
             while not d:
-                # 1 step
-                if week < 25:
+                # 1 , 2 step
+                if week < 50:
                     for i in range(4):
                         a = self.agents_list[0][i].get_action(self.env)
-                        next_state,r,d = api.send(a)
+                        state,r,d = api.send(a)
                         cum_r[i] += r
-                # 2 step
-                elif week < 50:
-                    for i in range(4):
-                        a = self.agents_list[1][i].get_action(self.env)
-                        next_state,r,d = api.send(a)
-                        cum_r[i] += r
+                        r_4[i] = r
+                # policy 3
                 elif week < 75:
-                    obs = [[], [], [], []]
                     # ob : state, reward, done, action, next_state
                     for i in [0, 1]:
-                        a = self.agents_list[i].get_action(self.env)
-                        next_state,r,d = api.send(a)
+                        a = self.agents_list[0][i].get_action(self.env)
+                        state,r,d = api.send(a)
                         cum_r[i] += r
+                        r_4[i] = r
                     for i in [2]:
                         state_ = np.array(state).flatten()[np.newaxis,:]
-                        a = self.agents_list[i].agent.e_greedy_action(state=state_)
+                        a = self.agents_list[1][0].agent.e_greedy_action(state=state_)
                         next_state,r,d = api.send(a)
                         cum_r[i] += r
+                        r_4[i] = r
+                        next_state_ = np.array(next_state).flatten()[np.newaxis,:]
+                        obs[i].append([state_, r, d, a, next_state_])
+                        self.obs = obs
+                        self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
+
                     for i in [3]:
-                        a = self.agents_list[i].get_action(self.env)
-                        next_state,r,d = api.send(a)
+                        a = self.agents_list[0][3].get_action(self.env)
+                        state,r,d = api.send(a)
                         cum_r[i] += r
+                        r_4[i] = r
+
+                # policy 4
                 else:
-                    obs = [[], [], [], []]
                     # ob : state, reward, done, action, next_state
                     for i in range(4):
                         state_ = np.array(state).flatten()[np.newaxis,:]
-                        a = self.agents_list[i].agent.e_greedy_action(state=state_)
-                        next_state,r,d = api.send(a)
+                        a = self.agents_list[2][i].agent.e_greedy_action(state=state_)
+                        state,r,d = api.send(a)
                         cum_r[i] += r
-
-                    for i in range(4):
+                        r_4[i] = r
+                        next_state_ = np.array(next_state).flatten()[np.newaxis,:]
+                        obs[i].append([state_, r, d, a, next_state_])
                         self.obs = obs
-                        self.agents_list[i].sampling_pool.add_to_buffer(obs[i][0])
+                        self.agents[i].sampling_pool.add_to_buffer(obs[i][0])
 
+                self.cum_r_0[epi].append(cum_r[0])
+                self.cum_r_1[epi].append(cum_r[1])
+                self.cum_r_2[epi].append(cum_r[2])
+                self.cum_r_3[epi].append(cum_r[3])
+                self.r_0[epi].append(r_4[0])
+                self.r_1[epi].append(r_4[1])
+                self.r_2[epi].append(r_4[2])
+                self.r_3[epi].append(r_4[3])
+
+            for i in range(4):
+                    self.cum_r[i].append(cum_r[i])
+
+            tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
+            tqdm_e.refresh()
+            self.week_his.append(self.env.week)
+            #  train
+            if epi % 10:
+                self.agents_list[1][0].train_agent()
                 for i in range(4):
-                    for j in range(4):
-                        self.agents_list[j][i].cum_r.append(cum_r[i])
-                self.week_his.append(self.env.week)
+                    self.agents_list[2][i].train_agent()
+
+    # def play_(self, epsiode=100):
+    #     """前50期 polciy2， 50至75 policy3
+    #     """
+    #     self.cum_r = [[],[],[],[]]
+    #     self.cum_r_0 = [ [] for i in range(episode)]
+    #     self.cum_r_1 = [ [] for i in range(episode)]
+    #     self.cum_r_2 = [ [] for i in range(episode)]
+    #     self.cum_r_3 = [ [] for i in range(episode)]
+    #
+    #     self.r_0 = [ [] for i in range(episode)]
+    #     self.r_1 = [ [] for i in range(episode)]
+    #     self.r_2 = [ [] for i in range(episode)]
+    #     self.r_3 = [ [] for i in range(episode)]
+    #
+    #     tqdm_e = tqdm(range(episode))
+    #     for i in range(4):
+    #         self.agents_list[0][i]._init_agent()
+    #     for epi in tqdm_e:
+    #         r_4 = np.zeros(4)
+    #         week = 0
+    #         cum_r = np.zeros(4)
+    #         api = self.env.start_play()
+    #         state, _, _ = next(api)
+    #         d = False
+    #         while not d:
+    #             # 1 , 2 step
+    #             if week < 50:
+    #                 for i in range(4):
+    #                     a = self.agents_list[0][i].get_action(self.env)
+    #                     state,r,d = api.send(a)
+    #                     cum_r[i] += r
+    #                     r_4[i] = r
+    #             # policy 3
+    #             elif week < 75:
+    #                 # ob : state, reward, done, action, next_state
+    #                 for i in [0, 1]:
+    #                     a = self.agents_list[0][i].get_action(self.env)
+    #                     state,r,d = api.send(a)
+    #                     cum_r[i] += r
+    #                     r_4[i] = r
+    #                 for i in [2]:
+    #                     state_ = np.array(state).flatten()[np.newaxis,:]
+    #                     a = self.agents_list[1][0].agent.e_greedy_action(state=state_)
+    #                     state,r,d = api.send(a)
+    #                     cum_r[i] += r
+    #                     r_4[i] = r
+    #                 for i in [3]:
+    #                     a = self.agents_list[0][3].get_action(self.env)
+    #                     state,r,d = api.send(a)
+    #                     cum_r[i] += r
+    #                     r_4[i] = r
+    #             # policy 4
+    #             else:
+    #                 # ob : state, reward, done, action, next_state
+    #                 for i in range(4):
+    #                     state_ = np.array(state).flatten()[np.newaxis,:]
+    #                     a = self.agents_list[2][i].agent.e_greedy_action(state=state_)
+    #                     state,r,d = api.send(a)
+    #                     cum_r[i] += r
+    #                     r_4[i] = r
+    #             self.cum_r_0[epi].append(cum_r[0])
+    #             self.cum_r_1[epi].append(cum_r[1])
+    #             self.cum_r_2[epi].append(cum_r[2])
+    #             self.cum_r_3[epi].append(cum_r[3])
+    #             self.r_0[epi].append(r_4[0])
+    #             self.r_1[epi].append(r_4[1])
+    #             self.r_2[epi].append(r_4[2])
+    #             self.r_3[epi].append(r_4[3])
+    #
+    #         for i in range(4):
+    #                 self.cum_r[i].append(cum_r[i])
+    #         self.week_his.append(self.env.week)
+    #         tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
+    #         tqdm_e.refresh()
