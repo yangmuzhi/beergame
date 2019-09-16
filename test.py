@@ -12,7 +12,7 @@ def demand():
     while True:
         yield np.random.uniform(10)
 demand_gen = demand()
-env = BeerGameEnv(demand_gen, lag=5)
+env = BeerGameEnv(demand_gen, lag=2)
 
 
 api = env.start_play()
@@ -36,21 +36,28 @@ bg = chain_wrapper(agents, env)
 import matplotlib.pyplot as plt
 
 
-bg.play(episode=10000)
+bg.play_4dqn(episode=10000)
 
 
-
-plt.plot(
-np.array([bg.agents[0].cum_r, bg.agents[1].cum_r,
+x = np.array([bg.agents[0].cum_r, bg.agents[1].cum_r,
 bg.agents[2].cum_r,bg.agents[3].cum_r]).sum(axis=0)
+
+plt.plot(x[x>=-5000]
 
 )
 plt.show()
 
 
-length = len(bg.agents[0].cum_r)
-sum_r = np.array(bg.agents[0].cum_r) + np.array(bg.agents[1].cum_r)+np.array(bg.agents[2].cum_r) + np.array(bg.agents[3].cum_r)
-plt.plot(range(length), sum_r / np.array(bg.week_his))
+plt.plot(np.array(bg.agents[0].cum_r))
+plt.show()
+
+plt.plot(np.array(bg.agents[1].cum_r))
+plt.show()
+
+plt.plot(np.array(bg.agents[2].cum_r))
+plt.show()
+
+plt.plot(np.array(bg.agents[3].cum_r))
 plt.show()
 
 import pickle

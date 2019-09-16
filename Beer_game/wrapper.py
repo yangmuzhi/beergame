@@ -17,7 +17,7 @@ class chain_wrapper:
         self.week_his = []
         self.agents_list = agents_list
 
-    def play_4dqn(self, episode, train_freq=10, save_freq=1000):
+    def play_4dqn(self, episode, train_freq=1, save_freq=1000):
         """
         要注意的是，这是多人游戏，所以每次agent_i决策完了获得的s,r,d
         是agent_{i+1}应该的state
@@ -80,6 +80,74 @@ class chain_wrapper:
         for i in range(4):
             self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
 
+    def play_3dqn(self, episode, train_freq=1, save_freq=1000):
+        """
+        要注意的是，这是多人游戏，所以每次agent_i决策完了获得的s,r,d
+        是agent_{i+1}应该的state
+        """
+        tqdm_e = tqdm(range(episode))
+        for epi in tqdm_e:
+            self.agents[3]._init_agent()
+            cum_r = np.zeros(4)
+            api = self.env.start_play()
+            # agent 0 's state
+            state, r, d = next(api)
+            state_ = np.array(state).flatten()[np.newaxis,:]
+            # d = False
+            # save next state
+            now_state_queue = [[], [], [], []]
+            r_queue = [[], [], [], []]
+            d_queue = [[], [], [], []]
+            a_queue = [[], [], [], []]
+            while not d:
+                # ob : state, reward, done, action, next_state
+                for i in range(4):
+                    cum_r[i] += r
+                    r_queue[i].append(r)
+                    d_queue[i].append(d)
+                    now_state_queue[i].append(state_)
+
+                    if i == 3:
+                        self.agents[i].get_action(self.env)
+                    else:
+                        a = self.agents[i].agent.e_greedy_action(state=state_)
+                    a_queue[i].append(a)
+                    # next_state 是 agent i+1 的 state
+                    next_state,r,d = api.send(a)
+                    next_state_ = np.array(state).flatten()[np.newaxis,:]
+                    state_ = next_state_
+            # for i in range(4):
+            #     for j in range(len(now_state_queue[0])-1):
+            #         # self.obs = obs
+            #         self.agents[i].sampling_pool.add_to_buffer(
+            #         [now_state_queue[i][j], r_queue[i][j],
+            #         d_queue[i][j], a_queue[i][j], now_state_queue[i][j+1]])
+                for i in range(3):
+                    if i == 0:
+                        k = 3
+                    else:
+                        k = i-1
+                    for j in range(len(now_state_queue[0])-1):
+                        self.agents[i].sampling_pool.add_to_buffer(
+                        [now_state_queue[i][j], r_queue[i][j],
+                        d_queue[i][j], a_queue[i][j], now_state_queue[k][j+1]])
+            tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
+            tqdm_e.refresh()
+
+            for i in range(4):
+                self.agents[i].cum_r.append(cum_r[i])
+            self.week_his.append(self.env.week)
+            # train
+            if epi % train_freq == 0:
+                for i in range(3):
+                    self.agents[i].train_agent()
+            # if epi % save_freq == 0:
+            #     print("saving models ...")
+            #     for i in range(4):
+            #         self.agents[i].save_model(f"agent_{i}-epis_{epi}.h5")
+        # for i in range(3):
+        #     self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
+
     def play_4policy(self, episode):
         """
         4个硬策略, 支持4个simple policy 和 3个simple policy和1个ar one
@@ -100,7 +168,7 @@ class chain_wrapper:
                 for i in range(4):
                     cum_r[i] += r
                     r_queue[i].append(r)
-                    a = self.agents[i].get_action()
+                    a = self.agents[i].get_action(self.env)
                     # next_state 是 agent i+1 的 state
                     next_state,r,d = api.send(a)
             tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
@@ -109,16 +177,17 @@ class chain_wrapper:
             for i in range(4):
                 self.agents[i].cum_r.append(cum_r[i])
             self.week_his.append(self.env.week)
-    
-    def play_1dqn_3policy(self, episode, train_freq=10, save_freq=1000):
+
+    def play_1dqn_3policy(self, episode, train_freq=1, save_freq=1000, dqn_idx=2):
         """
         2个simple policy, 1个ar_one, 1个dqn(第三个agent),
         """
         tqdm_e = tqdm(range(episode))
         for epi in tqdm_e:
             # init agent
-            for i in [0,1,3]:
-                self.agents[i]._init_agent()
+            for i in range(4):
+                if i is not dqn_idx:
+                    self.agents[i]._init_agent()
             cum_r = np.zeros(4)
             api = self.env.start_play()
             # agent 0 's state
@@ -137,47 +206,40 @@ class chain_wrapper:
                     r_queue[i].append(r)
                     d_queue[i].append(d)
                     now_state_queue[i].append(state_)
-                    if i == 2:
+                    if i == dqn_idx:
                         a = self.agents[i].agent.e_greedy_action(state=state_)
                     else:
-                        a = self.agents[i].get_action()
+                        a = self.agents[i].get_action(self.env)
                     a_queue[i].append(a)
                     # next_state 是 agent i+1 的 state
                     next_state,r,d = api.send(a)
                     next_state_ = np.array(state).flatten()[np.newaxis,:]
                     state_ = next_state_
-            # for i in range(4):
-            #     for j in range(len(now_state_queue[0])-1):
-            #         # self.obs = obs
-            #         self.agents[i].sampling_pool.add_to_buffer(
-            #         [now_state_queue[i][j], r_queue[i][j],
-            #         d_queue[i][j], a_queue[i][j], now_state_queue[i][j+1]])
 
                 for j in range(len(now_state_queue[0])-1):
-                    self.agents[2].sampling_pool.add_to_buffer(
-                    [now_state_queue[2][j], r_queue[2][j],
-                    d_queue[2][j], a_queue[2][j], now_state_queue[1][j+1]])
+                    self.agents[dqn_idx].sampling_pool.add_to_buffer(
+                    [now_state_queue[dqn_idx][j], r_queue[dqn_idx][j],
+                    d_queue[dqn_idx][j], a_queue[dqn_idx][j], now_state_queue[dqn_idx-1][j+1]])
             tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
             tqdm_e.refresh()
-                self.agents[3].cum_r.append(cum_r[3])
+            for i in range(4):
+                self.agents[i].cum_r.append(cum_r[i])
             self.week_his.append(self.env.week)
             # train
             if epi % train_freq == 0:
-                for i in range(4):
-                    self.agents[i].train_agent()
-            if epi % save_freq == 0:
-                print("saving models ...")
-                for i in range(4):
-                    self.agents[i].save_model(f"agent_{i}-epis_{epi}.h5")
-        for i in range(4):
-            self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
-    
+                self.agents[dqn_idx].train_agent()
+            # if epi % save_freq == 0:
+            #     print("saving models ...")
+            #         self.agents[i].save_model(f"agent_{i}-epis_{epi}.h5")
+        # for i in range(4):
+        #     self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
+            #     self.agents[i].save_model(f"final-agent_{i}-epis_{epi}.h5")
     def play_4step(self, episode, train_freq=10, save_freq=1000):
         """
         4个阶段，1天4个simple policy，25天agent0 换ar1，
                 50天agent2换dqn，75天全换dqn。
         """
-        
+
         self.cum_r = [[],[],[],[]]
         self.cum_r_0 = [ [] for i in range(episode)]
         self.cum_r_1 = [ [] for i in range(episode)]
