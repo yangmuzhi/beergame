@@ -137,7 +137,9 @@ class BeerGameEnv:
         self.arr_order.append(np.zeros(4))
 
     def start_play(self):
-        """按照0，1，-2，3的顺序给actions。结算要按照paper是3，2，1，0的顺序"""
+        """按照0，1，-2，3的顺序给actions。结算要按照paper是3，2，1，0的顺序
+        顺序决策的时候，agent不知道其他agent的决策
+        """
         self.reset()
         while True:
             # 产生需求
