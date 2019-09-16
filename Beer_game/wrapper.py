@@ -17,7 +17,7 @@ class chain_wrapper:
         self.week_his = []
         self.agents_list = agents_list
 
-    def play(self, episode, train_freq=10, save_freq=1000):
+    def play_4dqn(self, episode, train_freq=10, save_freq=1000):
         """
         要注意的是，这是多人游戏，所以每次agent_i决策完了获得的s,r,d
         是agent_{i+1}应该的state
@@ -48,12 +48,21 @@ class chain_wrapper:
                     next_state,r,d = api.send(a)
                     next_state_ = np.array(state).flatten()[np.newaxis,:]
                     state_ = next_state_
-            for i in range(4):
-                for j in range(len(now_state_queue[0])-1):
-                    # self.obs = obs
-                    self.agents[i].sampling_pool.add_to_buffer(
-                    [now_state_queue[i][j], r_queue[i][j],
-                    d_queue[i][j], a_queue[i][j], now_state_queue[i][j+1]])
+            # for i in range(4):
+            #     for j in range(len(now_state_queue[0])-1):
+            #         # self.obs = obs
+            #         self.agents[i].sampling_pool.add_to_buffer(
+            #         [now_state_queue[i][j], r_queue[i][j],
+            #         d_queue[i][j], a_queue[i][j], now_state_queue[i][j+1]])
+                for i in range(4):
+                    if i == 0:
+                        k = 3
+                    else:
+                        k = i+1
+                    for j in range(len(now_state_queue[0])-1):
+                        self.agents[i].sampling_pool.add_to_buffer(
+                        [now_state_queue[i][j], r_queue[i][j],
+                        d_queue[i][j], a_queue[i][j], now_state_queue[k][j+1]])
             tqdm_e.set_description("Score: " + str(np.sum(cum_r)))
             tqdm_e.refresh()
 
